@@ -1,0 +1,303 @@
+---
+title: 'Project 2: Alignment Analysis'
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## The first step was to get enter the directory to get the required files
+in the graham.
+cd /scratch/emandevi/genomic_methods_w2021/Project2
+# Then the files had to be copied to my directory on graham.
+cp -R burbot_raw_data /scratch/sali12/nearline/
+cp -R burbot_reference_genome /scratch/sali12/nearline/burbot_raw_data
+cp -R cod_reference_genome /scratch/sali12/nearline/burbot_raw_data
+# In order to get the bam files, through the shell script some directories
+need to be made because the files will appear in the direcotry specified in
+the shell script.
+mkdir bow_assem_cod
+mkdir bow_assem_burbot
+mkdir bwa_assem_cod
+mkdir bwa_assem_burbot
+##### Then the shell script code used below is mentioned below. In order to
+get the files for each alignment software used and reference the directory
+name was changed and the command for aignment as well. The rest was kept
+the same. #####
+#!/bin/sh
+## This script uses bwa to map reads (.fastq) to reference genome
+## usage (for testing with just one individual):
+## sbatch run_bwa_queuesub.sh $fastq
+#SBATCH --account=def-emandevi
+#SBATCH --time=0-00:15:00 ## days-hours:minutes:seconds
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4 # number of threads
+#SBATCH --mem=16000 # requested memory (in MB)
+#SBATCH --mail-type=END
+module load bwa/0.7.17
+module load samtools/1.9
+fastq=$1
+basename=`echo $fastq | sed 's/\.f.*\.gz.*//'`
+echo "Starting alignment of $fastq to reference genome"
+bwa mem -t 16 burbot_reference_genome/
+GCA_900302385.1_ASM90030238v1_genomic.fna $fastq >  bwa_assem_burbot/
+$basename.sam
+echo "Converting sam to bam for $basename"
+samtools view -b -S -o bwa_assem_burbot/$basename.bam bwa_assem_burbot/
+$basename.sam
+echo "Sorting and indexing bam files for $basename"
+samtools sort bwa_assem_burbot/$basename.bam -o bwa_assem_burbot/
+$basename.sorted.bam
+samtools index bwa_assem_burbot/$basename.sorted.bam
+###### The following code represents the script for bowtie2 alignment
+software that through the sbatch will be used through queueing system. The
+script is designed to run for 15 minutes.
+#!/bin/sh
+## This script uses bwa to map reads (.fastq) to reference genome
+## usage (for testing with just one individual):
+## sbatch run_bwa_queuesub.sh $fastq
+#SBATCH --account=def-emandevi
+#SBATCH --time=0-00:15:00 ## days-hours:minutes:seconds
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4 # number of threads
+#SBATCH --mem=16000 # requested memory (in MB)
+#SBATCH --mail-type=END
+module load bowtie2
+module load samtools/1.9
+fastq=$1
+basename=`echo $fastq | sed 's/\.f.*\.gz.*//'`
+echo "Starting alignment of $fastq to reference genome"
+bowtie2 --very-sensitive-local -x cod_reference_genome/
+GCF_902167405.1_gadMor3.0_genomic -U  $fastq -S bowtie_assem_cod/
+$basename.sam
+echo "Converting sam to bam for $basename"
+samtools view -b -S -o bowtie_assem_cod/$basename.bam bowtie_assem_cod/
+$basename.sam
+echo "Sorting and indexing bam files for $basename"
+samtools sort bowtie_assem_cod/$basename.bam -o bowtie_assem_cod/
+$basename.sorted.bam
+samtools index bowtie_assem_cod/$basename.sorted.bam
+
+# The script is for running bowtie2 using the burbot genome
+#!/bin/sh
+## This script uses bwa to map reads (.fastq) to reference genome
+## usage (for testing with just one individual):
+## sbatch run_bwa_queuesub.sh $fastq
+#SBATCH --account=def-emandevi
+#SBATCH --time=0-00:15:00 ## days-hours:minutes:seconds
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4 # number of threads
+#SBATCH --mem=16000 # requested memory (in MB)
+#SBATCH --mail-type=END
+module load bowtie2
+module load samtools/1.9
+fastq=$1
+basename=`echo $fastq | sed 's/\.f.*\.gz.*//'`
+echo "Starting alignment of $fastq to reference genome"
+bowtie2 --very-sensitive-local -x  burbot_reference_genome/
+GCA_900302385.1_ASM90030238v1_genomic -U $fastq -S bowtie_assem_burbot/
+$basename.sam
+echo "Converting sam to bam for $basename"
+samtools view -b -S -o bowtie_assem_burbot/$basename.bam
+bowtie_assem_burbot/$basename.sam
+echo "Sorting and indexing bam files for $basename"
+samtools sort bowtie_assem_burbot/$basename.bam -o bowtie_assem_burbot/
+$basename.sorted.bam
+samtools index bowtie_assem_burbot/$basename.sorted.bam
+###### The script for running BWA alignment software using the cod genome
+#########
+#!/bin/sh
+## This script uses bwa to map reads (.fastq) to reference genome
+## usage (for testing with just one individual):
+## sbatch run_bwa_queuesub.sh $fastq
+#SBATCH --account=def-emandevi
+#SBATCH --time=0-00:15:00 ## days-hours:minutes:seconds
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=4 # number of threads
+#SBATCH --mem=16000 # requested memory (in MB)
+#SBATCH --mail-type=END
+module load bwa/0.7.17
+module load samtools/1.9
+
+fastq=$1
+basename=`echo $fastq | sed 's/\.f.*\.gz.*//'`
+echo "Starting alignment of $fastq to reference genome"
+bwa mem -t 16 cod_reference_genome/GCF_902167405.1_gadMor3.0_genomic.fna
+$fastq >  bwa_assem_cod/$basename.sam
+echo "Converting sam to bam for $basename"
+samtools view -b -S -o bwa_assem_cod/$basename.bam bwa_assem_cod/
+$basename.sam
+echo "Sorting and indexing bam files for $basename"
+samtools sort bwa_assem_cod/$basename.bam -o bwa_assem_cod/
+$basename.sorted.bam
+samtools index bwa_assem_cod/$basename.sorted.bam
+# The command to use bowtie2 and bwa is mentioned below and that was used
+in the script. The --very-sensitive local argument allows for better
+alignment and gap penalty. The -x referes to the file that will be used for
+reference. -U is for the files to be aligned and -S is for the output of
+the file. The format indicated is .sam which will be converted .bam files.
+bowtie2 -–very-sensitive-local -x cod_reference_genome/
+GCF_902167405.1_gadMor3.0_genomic -U $fastq -S bowtie_assem_cod/$basename.
+bwa mem -t 16 cod_reference_genome/GCF_902167405.1_gadMor3.0_genomic.fna -U
+$fastq -S bowtie_assem_cod/$basename.
+# Once the files were obtained then samtools stats was used to get the
+information of raw reads and assembled reads. The raw reads give the total
+length of the reads and the assembled reads tell you how much of the burbot
+sequneces aligned or matched.
+for file in *sorted.bam; do samtools stats $file | grep "raw total
+sequences:" | sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "reads mapped:" |
+sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "raw total
+sequences:" | sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "reads mapped:" |
+sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "raw total
+sequences:" | sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "reads mapped:" |
+sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+for file in *sorted.bam; do samtools stats $file | grep "raw total
+sequences:" | sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+
+for file in *sorted.bam; do samtools stats $file | grep "reads mapped:" |
+sed 's/SN\t.*:\t//g'; done > actual_bwa_cody_raw.txt
+##### The files can be seen here. The directores have been made sure that
+they are accesible by everyone other than me and for files to be viewed.
+#######
+/home/sali12/new.percentages/bowtie_assem_cody
+/home/sali12/new.percentages/bwa_assem_cody
+/home/sali12/new.percentages/bowtie_assem_burbot
+home/sali12/new.percentages/bwa_assem_burbot
+# The percentage calculated were done in R in the graham and were saved as
+csv files. The Module load r command loads the r but does not initiate it
+until r is written in another line. The files were read using the
+read.table function because read.csv or read.delim causes the first number
+to be indicated as the column. Finally simple analysis was done where
+assembled reads were divided by raw read numbers and multiplied with a 100.
+The file dataa was saved as csv and transported back to the local computer.
+The following is a demonstration with one of the directories which only had
+the bam alignment files that resulted from bowtie2 using the burbot
+fragmented genome as a reference.
+Module load r
+R
+Actual = read.table(“ bow_bur_raw.txt")
+Assem_read = read.table(“bow_percentages_bur.csv")
+Final = (Assem_read / Actual)*100
+Write.csv(Final, Percentage.Burbot.Bowtie)
+##### copying the files of raw reads, percentages and assembled reads to
+the local computer. The path is now broken and inaccessible.
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bow_bur_raw.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bow_percentages_bur.csv
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bur_bow_reads_mapped.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bwa_cod_raw.txt
+
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bow_cod_ref.csv
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/cod_bow_reads_mapped.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/actual_bwa_cody_raw.csv
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bwa_cod_percentages.csv
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/actual_cody_bwa_reads_mapped.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bwa_bur_raw.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bur_bwa_reads_mapped.txt
+scp sali12@graham.computecanada.ca: /scratch/sali12/nearline/
+burbot_raw_data/bow_assem_cody/bur_ref_bur.csv
+# The ggplot2 library is required to make the violin plot.
+```{r cars}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+```
+# Here the files that were produced in graham were uploaded to make a
+dataframe. It's a bit to rename the columns because 3/4 had the same name
+thus 4 individual dataframes were created. This particular dataframe has
+the information of raw reads, assemebled reads and alignment rate acquired
+using bowtie2 software using the burbot reference genome.
+```{r pressure, include=TRUE}
+# This creates the data frame for burbot sequences using the burbot
+reference genome
+getwd()
+Bowtie.burbot.raw = read.table("bow_bur_raw.txt")
+Bowtie.burbot = read.csv("bow_percentages_bur.csv")
+Bowtie.burbot.mapped = read.table("bur_bow_reads_mapped.txt")
+Bowtie.burbot.raw = Bowtie.burbot.raw %>% rename(Raw_Read = V1 )
+Bowtie.burbot.mapped = Bowtie.burbot.mapped %>% rename(Mapped_Read = V1 )
+
+Bowtie.burbot$X <- "Bowtie_Ref_Burbot"
+Bowtie.burbot = Bowtie.burbot %>% rename(Type = X, Percentage.Alignment =
+V1 )
+Bowtie.burbot.data <- cbind(Bowtie.burbot.raw,Bowtie.burbot.mapped,
+Bowtie.burbot )
+View(Bowtie.burbot.data)
+```
+## This particular dataframe has the information of raw reads, assemebled
+reads and alignment rate acquired using bowtie2 software using the cod
+reference genome.
+```{r pressure, echo=FALSE}
+# This creates the data frame for Bowtie alignment of burbot sequences
+using the cod reference genome
+Bowtie.cod.raw = read.table("bwa_cod_raw.txt")
+Bowtie.cod  = read.csv("bow_cod_ref.csv")
+Bowtie.cod.mapped = read.table("cod_bow_reads_mapped.txt")
+Bowtie.cod.raw = Bowtie.cod.raw %>% rename(Raw_Read = V1 )
+Bowtie.cod.mapped = Bowtie.cod.mapped %>% rename(Mapped_Read = V1 )
+Bowtie.cod$X <- "Bowtie_Ref_cod"
+Bowtie.cod = Bowtie.cod %>% rename(Type = X, Percentage.Alignment = V1 )
+Bowtie.cod.data <- cbind(Bowtie.cod.raw,Bowtie.cod.mapped, Bowtie.cod )
+View(Bowtie.cod.data)
+```
+## This particular dataframe has the information of raw reads, assemebled
+reads and alignment rate acquired using b software using the cod reference
+genome.
+```{r pressure, echo=FALSE}
+# This creates the data frame for Bowtie alignment of burbot sequences
+using the cod reference genome
+Bwa.cod.raw = read.table("actual_bwa_cody_raw.csv")
+Bwa.cod  = read.csv("bwa_cod_percentages.csv")
+
+Bwa.cod.mapped = read.table("actual_cody_bwa_reads_mapped.txt")
+Bwa.cod.raw = Bwa.cod.raw %>% rename(Raw_Read = V1 )
+Bwa.cod.mapped = Bwa.cod.mapped %>% rename(Mapped_Read = V1 )
+Bwa.cod$X <- "Bwa_Ref_cod"
+Bwa.cod = Bwa.cod %>% rename(Type = X, Percentage.Alignment = V1 )
+Bwa.cod.data <- cbind(Bwa.cod.raw,Bwa.cod.mapped, Bwa.cod )
+View(Bwa.cod.data)
+```
+### This particular dataframe has the information of raw reads, assemebled
+reads and alignment rate acquired using bwa software using the burbot
+reference genome.
+```{r pressure, echo=FALSE}
+# This creates the data frame for Bowtie alignment of burbot sequences
+using the cod reference genome
+Bwa.burbot.raw = read.table("bwa_bur_raw.txt")
+Bwa.burbot = read.csv("bur_ref_bur.csv")
+Bwa.burbot.mapped = read.table("bur_bwa_reads_mapped.txt")
+Bwa.burbot.raw = Bwa.burbot.raw %>% rename(Raw_Read = V1 )
+Bwa.burbot.mapped = Bwa.burbot.mapped %>% rename(Mapped_Read = V1 )
+Bwa.burbot$X <- "Bwa_Ref_burbot"
+Bwa.burbot = Bwa.burbot %>% rename(Type = X, Percentage.Alignment = V1 )
+Bwa.burbot.data <- cbind(Bwa.burbot.raw,Bwa.burbot.mapped, Bwa.burbot )
+View(Bwa.burbot.data)
+Final_data = do.call("rbind", list(Bwa.burbot.data,
+Bwa.cod.data,Bowtie.cod.data, Bowtie.burbot.data  ))
+View(Final_data)
+```
+## The below cod allows for the creation of violin plot to visualize the
+alignment rate. The data frame that was generated was written as a .csv
+file and has been posted in the write up.
+
+```{r pressure, echo=FALSE}
+ggplot(Final_data, aes(x = Type, y = Percentage.Alignment, color = Type,
+fill = Type)) + geom_violin(trim = FALSE) + labs(y = "Percentage Aligned",
+x = "Type of Reference and Alignment Software", title =  "Violin Plot of
+Percentage Alignment Results of Burbot Sequences to Cod and Burbot
+Reference Genomes Using BWA and Bowtie Softwares")
+write.csv(Final_data, "Final_data_alignment.csv")
